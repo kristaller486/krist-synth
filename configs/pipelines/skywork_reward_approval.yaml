@@ -1,0 +1,38 @@
+# Конфигурация для аппрува preference данных с помощью Skywork Reward Model
+pipeline_name: "skywork_reward_approval_pipeline"
+
+# Источник данных с preference данными
+data_source:
+  path: "kristaller486/quant-align-01"  # путь к вашему датасету
+  split: "train"
+  # take_first_n: 100  # для тестирования
+
+# Настройки обработки
+processing:
+  batcher_class: "src.pipeline.batcher.dynamic_batcher.DynamicBatcher"
+  max_concurrent_tasks: 100  # меньше для HTTP API
+
+# Чекпоинты
+checkpoints:
+  path: "artifacts/checkpoints/"
+
+# Вывод результатов
+output:
+  format: "dataset"
+  path: "artifacts/skywork_approved_dataset/"
+  
+# Шаги пайплайна
+steps:
+  # Аппрув с помощью Skywork reward модели
+  - name: "Skywork RM Approval"
+    class_path: "src.pipeline.steps.reward_model.SkyworkRewardModelApprovalStep"
+    config:
+      # Ключи входных данных
+      input_prompt_key: "prompt"
+      input_chosen_key: "chosen" 
+      input_rejected_key: "rejected"
+      
+      # API настройки
+      base_url: "http://localhost:8000/classify"
+      model_name: "Skywork/Skywork-Reward-V2-Llama-3.1-8B"
+      timeout: 5000

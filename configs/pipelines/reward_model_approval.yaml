@@ -1,0 +1,48 @@
+# Пример конфигурации для аппрува preference данных с помощью reward модели
+pipeline_name: "reward_model_approval_pipeline"
+
+# Источник данных с preference данными
+data_source:
+  path: "kristaller486/quant-align-01"  # путь к вашему датасету
+  split: "train"
+  # take_first_n: 100  # для тестирования
+
+# Настройки обработки
+processing:
+  batcher_class: "src.pipeline.batcher.dynamic_batcher.DynamicBatcher"
+  max_concurrent_tasks: 10  # не слишком много для RM API
+
+# Чекпоинты
+checkpoints:
+  path: "artifacts/checkpoints/"
+
+# Вывод результатов
+output:
+  format: "dataset"
+  path: "artifacts/rm_approved_dataset/"
+  
+# Шаги пайплайна
+steps:
+  # Аппрув с помощью reward модели
+  - name: "RM Approval"
+    class_path: "src.pipeline.steps.reward_model.RewardModelApprovalStep"
+    config:
+      # Ключи входных данных
+      input_prompt_key: "prompt"
+      input_chosen_key: "chosen" 
+      input_rejected_key: "rejected"
+      
+      # Конфигурация RM клиента
+      client_config:
+        api_key: "dummy"
+        base_url: "http://127.0.0.1:8000/v1"
+        timeout: 120
+        max_retries: 3
+        
+      # Модель и параметры
+      model_name: "nvidia/Llama-3_3-Nemotron-Super-49B-GenRM-Multilingual"
+      params:
+        temperature: 0.0
+        top_p: 1.0
+        max_tokens: 32768
+        stream: false
