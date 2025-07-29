@@ -17,5 +17,5 @@ uv sync
 ## Как запускать
 
 ```bash
-uv run python -m src.runner --pipeline-config <config path>
+uv run python -m src.pipeline.runner --pipeline-config <config path>
 ```
