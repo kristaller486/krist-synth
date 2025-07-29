@@ -130,7 +130,9 @@ async def main():
                 logger.info(f"Загрузка результатов из {checkpoint_file_path} для финального сохранения.")
                 final_ds = load_dataset('json', data_files=str(checkpoint_file_path), split='train')
                 
+                # Сортируем по __index__, чтобы гарантировать корректный порядок
                 if '__index__' in final_ds.column_names:
+                    final_ds = final_ds.sort('__index__')
                     final_ds = final_ds.remove_columns(['__index__'])
 
                 logger.info(f"Сохранение {len(final_ds)} записей в формате '{output_format}' по пути: {output_path_str}")
@@ -138,7 +140,10 @@ async def main():
                 if output_format == 'jsonl':
                     final_output_path = Path(output_path_str)
                     final_output_path.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy(checkpoint_file_path, final_output_path)
+                    
+                    # Сохраняем отсортированный Dataset в JSONL формат
+                    final_ds.to_json(final_output_path, orient='records', lines=True, force_ascii=False)
+                    
                     logger.info(f"Результаты сохранены в {final_output_path}")
 
                 elif output_format == 'dataset':
