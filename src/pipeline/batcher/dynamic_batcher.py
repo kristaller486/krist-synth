@@ -28,6 +28,7 @@ class DynamicBatcher(BaseBatcher):
             while True:
                 item = await in_queue.get()
                 if item is None:
+                    in_queue.task_done()  # Важно! Помечаем задачу как выполненную для сигнала завершения
                     break
                 
                 try:
@@ -46,6 +47,9 @@ class DynamicBatcher(BaseBatcher):
         workers = [asyncio.create_task(worker(input_queue, output_queue)) for _ in range(self.max_concurrent_tasks)]
 
         processed_count = 0
+        # Порядок выдачи результатов
+        expected_index = ds[0]['__index__'] if len(ds) > 0 and '__index__' in ds.column_names else 0
+        pending: Dict[int, Dict[str, Any]] = {}
 
         async def producer():
             for item in ds:
@@ -63,7 +67,14 @@ class DynamicBatcher(BaseBatcher):
             pbar.update(1)
             
             if not isinstance(result, Exception):
-                yield result
+                idx = result.get('__index__')
+                if idx is None:
+                    yield result
+                else:
+                    pending[idx] = result
+                    while expected_index in pending:
+                        yield pending.pop(expected_index)
+                        expected_index += 1
         
         await producer_task
         await input_queue.join()
