@@ -1,0 +1,66 @@
+# configs/pipelines/translation_hermes.yaml
+pipeline_name: "hermes_translation_pipeline"
+
+processing:
+  parallel_batch_size: 1000
+
+data_source:
+  path: "NousResearch/Hermes-3-Dataset"
+  split: "train"
+  # take_first_n: 50000
+
+checkpoints:
+  path: "artifacts/checkpoints/"
+
+output:
+  # Формат вывода: 'jsonl' или 'dataset'
+  format: "dataset" 
+  # Путь для сохранения. Для 'dataset' это может быть локальный путь или repo_id на Hugging Face Hub.
+  path: "username/hermes_translated_ru"
+  # Опциональные параметры для push_to_hub
+  push_to_hub: true
+  private: true
+
+steps:
+  - name: "Translate Dialogues"
+    class_path: "src.pipeline.steps.translation.IterativeTranslationStep"
+    config:
+      source_conversations_key: "conversations"
+      target_conversations_key: "conversations"
+      backup_conversations_key: "en_conversations"
+
+      # --- Конфигурация для перевода СИСТЕМНЫХ сообщений ---
+      system_translation_config:
+        formatter:
+          template_path: "prompts/translation/system_translate.md"
+          output_key: "temp_prompt"
+        llm:
+          input_key: "temp_prompt"
+          output_key: "temp_translation"
+          client_config:
+            api_key: "sk-..." # ЗАМЕНИТЕ НА ВАШ КЛЮЧ
+            base_url: "https://llm.local/v1" # ЗАМЕНИТЕ НА ВАШ URL
+            timeout: 5000
+            max_retries: 3
+          model_name: "unsloth/gemma-3-27b-it"
+          params:
+            temperature: 0.1
+            max_tokens: 4096
+
+      # --- Конфигурация для перевода ОБЫЧНЫХ промтов ---
+      conversation_translation_config:
+        formatter:
+          template_path: "prompts/translation/hermes_translate.md"
+          output_key: "temp_prompt"
+        llm:
+          input_key: "temp_prompt"
+          output_key: "temp_translation"
+          client_config:
+            api_key: "sk-..." # ЗАМЕНИТЕ НА ВАШ КЛЮЧ
+            base_url: "https://llm.local/v1" # ЗАМЕНИТЕ НА ВАШ URL
+            timeout: 5000
+            max_retries: 3
+          model_name: "unsloth/gemma-3-27b-it"
+          params:
+            temperature: 0.1
+            max_tokens: 8192

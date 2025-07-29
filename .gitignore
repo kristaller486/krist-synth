@@ -1,0 +1,6 @@
+outputs
+krist-pref-bench
+training/checkpoints
+**/__pycache__/**
+.idea
+**.7z

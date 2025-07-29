@@ -1,0 +1,41 @@
+# --- Pipeline for regenerating GPT turns in Hermes-3 dialogues (RU) ---
+
+pipeline_name: "generate_hermes_multiturn_ru"
+
+# 1. Data source ------------------------------------------------------------
+data_source:
+  path: "kristaller486/hermes-3-dataset-ru-translated-prompts"
+  split: "train"
+
+# 2. Processing & batching --------------------------------------------------
+processing:
+  batcher_class: "src.pipeline.batcher.dynamic_batcher.DynamicBatcher"
+  max_concurrent_tasks: 50     # adjust for your hardware/API-limits
+
+# 3. Checkpoints ------------------------------------------------------------
+checkpoints:
+  path: "artifacts/checkpoints/"
+
+# 4. Output -----------------------------------------------------------------
+output:
+  format: "dataset"
+  path: "./hermes-3-dataset-ru-regenerated"
+  push_to_hub: false
+  private: false
+
+# 5. Steps ------------------------------------------------------------------
+steps:
+  - name: "Multi-Turn Generation"
+    class_path: "src.pipeline.steps.multi_turn_generation.MultiTurnGenerationStep"
+    config:
+      input_key: "conversations"     # column with ShareGPT dialogue
+      model_name: "MODEL_NAME"
+      model_name_key: "model"        # optional column to save model name
+      client_config:
+        api_key: "sk-..." # set via env-var
+        base_url: "https://llm.local/v1"
+        timeout: 60
+        max_retries: 3
+      params:
+        temperature: 0.7
+        max_tokens: 512

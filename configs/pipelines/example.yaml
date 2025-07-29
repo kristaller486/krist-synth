@@ -1,0 +1,158 @@
+# --- Полный пример конфигурации пайплайна ---
+# Этот файл демонстрирует все возможные настройки.
+
+# Имя пайплайна, используется для именования файлов чекпоинтов и логов.
+pipeline_name: "full_example_pipeline"
+
+# --- 1. Конфигурация источника данных ---
+data_source:
+  # Путь к датасету на Hugging Face Hub или локальный путь.
+  path: "NousResearch/Hermes-3-Dataset"
+  # Имя сплита (например, 'train', 'test', 'validation').
+  split: "train"
+  # (Опционально) Взять только первые N записей для отладки.
+  # Если 0 или не указано, обрабатываются все данные.
+  take_first_n: 100
+
+# --- 2. Конфигурация обработки и батчинга ---
+processing:
+  # Класс батчера для обработки данных.
+  # Доступные варианты:
+  # - src.pipeline.batcher.static_batcher.StaticBatcher (по умолчанию)
+  # - src.pipeline.batcher.dynamic_batcher.DynamicBatcher
+  batcher_class: "src.pipeline.batcher.dynamic_batcher.DynamicBatcher"
+
+  # --- Настройки для StaticBatcher ---
+  # Размер батча для параллельной обработки.
+  # parallel_batch_size: 50
+
+  # --- Настройки для DynamicBatcher ---
+  # Максимальное количество одновременно выполняемых задач.
+  max_concurrent_tasks: 20
+
+# --- 3. Конфигурация чекпоинтов ---
+# Позволяет возобновить работу в случае сбоя.
+checkpoints:
+  # Путь к директории для сохранения файлов чекпоинтов.
+  path: "artifacts/checkpoints/"
+
+# --- 4. Конфигурация вывода ---
+# Определяет, как сохранить финальный результат.
+output:
+  # Формат вывода:
+  # - 'jsonl': Сохраняет результат в виде jsonl файла.
+  # - 'dataset': Сохраняет как датасет в формате Hugging Face (локально или на Hub).
+  format: "dataset"
+  
+  # Путь для сохранения.
+  # Для 'jsonl' - путь к файлу.
+  # Для 'dataset' - локальный путь к директории или repo_id на Hugging Face Hub.
+  path: "your_username/your_dataset_name"
+  
+  # --- Опциональные параметры для 'dataset' при загрузке на Hub ---
+  # Установите true для загрузки на Hugging Face Hub.
+  push_to_hub: true
+  # Если true, репозиторий на Hub будет приватным.
+  private: true
+
+# --- 5. Определение шагов пайплайна ---
+# Шаги выполняются последовательно для каждого элемента данных.
+steps:
+  # --- Пример: Шаг перевода (сложный, композитный) ---
+  - name: "Translate Dialogues"
+    class_path: "src.pipeline.steps.translation.IterativeTranslationStep"
+    config:
+      # Ключи для чтения и записи диалогов
+      source_conversations_key: "conversations"
+      target_conversations_key: "translated_conversations"
+      backup_conversations_key: "original_conversations"
+
+      # Конфигурация для перевода системных сообщений (с кэшированием)
+      system_translation_config:
+        formatter:
+          class_path: "src.pipeline.steps.prompt.FormatPromptStep"
+          config:
+            template_path: "prompts/translation/system_translate.md"
+            output_key: "system_prompt"
+        llm:
+          class_path: "src.pipeline.steps.llm.LLMGenerationStep"
+          config:
+            input_key: "system_prompt"
+            output_key: "system_translation"
+            client_config:
+              api_key: "YOUR_API_KEY"
+              base_url: "https://your.api.endpoint/v1"
+              timeout: 60
+              max_retries: 5
+            model_name: "some/model-for-system-prompts"
+            params:
+              temperature: 0.1
+              max_tokens: 1024
+
+      # Конфигурация для перевода обычных реплик
+      conversation_translation_config:
+        formatter:
+          class_path: "src.pipeline.steps.prompt.FormatPromptStep"
+          config:
+            template_path: "prompts/translation/hermes_translate.md"
+            output_key: "conversation_prompt"
+        llm:
+          class_path: "src.pipeline.steps.llm.LLMGenerationStep"
+          config:
+            input_key: "conversation_prompt"
+            output_key: "conversation_translation"
+            client_config:
+              api_key: "YOUR_API_KEY"
+              base_url: "https://your.api.endpoint/v1"
+              timeout: 120
+              max_retries: 3
+            model_name: "some/powerful-model-for-translation"
+            params:
+              temperature: 0.2
+              max_tokens: 4096
+
+  # --- Пример: Шаг форматирования промпта ---
+  - name: "Generate Creative Prompt"
+    class_path: "src.pipeline.steps.prompt.FormatPromptStep"
+    config:
+      # Путь к Jinja2 шаблону.
+      template_path: "prompts/scoring_prompt/creativity_1to5.md"
+      # Ключ, в который будет записан отформатированный промпт.
+      output_key: "creative_prompt"
+
+  # --- Пример: Шаг генерации текста с помощью LLM ---
+  - name: "Get Creative Score"
+    class_path: "src.pipeline.steps.llm.LLMGenerationStep"
+    config:
+      # Ключ, из которого берется промпт для LLM.
+      input_key: "creative_prompt"
+      # Ключ, в который будет записан ответ LLM.
+      output_key: "llm_score_output"
+      # Конфигурация OpenAI-совместимого клиента.
+      client_config:
+        api_key: "YOUR_API_KEY"
+        base_url: "https://your.api.endpoint/v1"
+        timeout: 60       # Таймаут в секундах
+        max_retries: 3    # Количество попыток
+      # Имя модели.
+      model_name: "gpt-4"
+      # Параметры для вызова LLM.
+      params:
+        temperature: 0.5
+        max_tokens: 500
+        # presence_penalty: 0.0
+        # frequency_penalty: 0.0
+        # top_p: 1.0
+
+  # --- Пример: Шаг извлечения JSON ---
+  - name: "Parse LLM Score"
+    class_path: "src.pipeline.steps.parsing.ExtractJSONStep"
+    config:
+      # Ключ, из которого берется текст с JSON.
+      input_key: "llm_score_output"
+      # (Опционально) Ключ, куда будет помещен извлеченный JSON объект.
+      # Используется только если 'unpack' = false.
+      output_key: "parsed_score_data"
+      # Если true (по умолчанию), ключи из JSON будут добавлены в корень item.
+      # Если false, весь JSON объект будет помещен в `output_key`.
+      unpack: true
