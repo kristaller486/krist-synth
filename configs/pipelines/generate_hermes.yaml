@@ -32,7 +32,7 @@ steps:
       model_name: "MODEL_NAME"
       model_name_key: "model"        # optional column to save model name
       client_config:
-        api_key: "sk-..." # set via env-var
+        api_key: "sk-..."
         base_url: "https://llm.local/v1"
         timeout: 60
         max_retries: 3
