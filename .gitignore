@@ -4,3 +4,4 @@ training/checkpoints
 **/__pycache__/**
 .idea
 **.7z
+artifacts/**
