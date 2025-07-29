@@ -20,7 +20,7 @@ checkpoints:
 # 4. Output -----------------------------------------------------------------
 output:
   format: "dataset"
-  path: "assets/hermes-3-dataset-ru"
+  path: "artifacts/hermes-3-dataset-ru"
   push_to_hub: false
   private: false
 
